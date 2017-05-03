@@ -1,8 +1,23 @@
 package wdsr.exercise4.receiver;
 
+import java.math.BigDecimal;
+
+import javax.jms.Connection;
+import javax.jms.Destination;
+import javax.jms.JMSException;
+import javax.jms.Message;
+import javax.jms.MessageConsumer;
+import javax.jms.MessageListener;
+import javax.jms.ObjectMessage;
+import javax.jms.Session;
+import javax.jms.TextMessage;
+
+import org.apache.activemq.ActiveMQConnectionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import wdsr.exercise4.PriceAlert;
+import wdsr.exercise4.VolumeAlert;
 import wdsr.exercise4.sender.JmsSender;
 
 /**
@@ -12,13 +27,23 @@ import wdsr.exercise4.sender.JmsSender;
  */
 public class JmsQueueReceiver {
 	private static final Logger log = LoggerFactory.getLogger(JmsQueueReceiver.class);
+	private final String queueName;
+	private AlertService registeredCallback;
+	private ActiveMQConnectionFactory connectionFactory;
+	private Connection connection;
+	private Session session;
+	private MessageConsumer consumer;
+	private final String VOLUME_ALERT_TYPE = "VolumeAlert";
+	private final String PRICE_ALERT_TYPE = "PriceAlert";
 	
 	/**
 	 * Creates this object
 	 * @param queueName Name of the queue to consume messages from.
 	 */
 	public JmsQueueReceiver(final String queueName) {
-		// TODO
+		this.queueName = queueName;
+		connectionFactory = new ActiveMQConnectionFactory("tcp://localhost:62616");
+		connectionFactory.setTrustAllPackages(true);
 	}
 
 	/**
@@ -26,16 +51,75 @@ public class JmsQueueReceiver {
 	 * @param alertService Callback to be registered.
 	 */
 	public void registerCallback(AlertService alertService) {
-		// TODO
+		registeredCallback = alertService;
+		startConsuming();
 	}
 	
 	/**
 	 * Deregisters all consumers and closes the connection to JMS broker.
 	 */
 	public void shutdown() {
-		// TODO
+		try {
+
+			consumer.setMessageListener(null);
+			session.close();
+			connection.close();
+
+		} catch (JMSException e) {
+			log.error(e.getMessage());
+		}
 	}
 
+	private void startConsuming() {
+		try {
+
+			connection = connectionFactory.createConnection();
+			session = connection.createSession(false, Session.AUTO_ACKNOWLEDGE);
+			Destination destination = session.createQueue(queueName);
+			consumer = session.createConsumer(destination);
+
+			consumer.setMessageListener(new MessageListener() {
+				@Override
+				public void onMessage(Message message) {
+					try {
+						String messageType = message.getJMSType().toString();
+						PriceAlert priceAlert = null;
+						VolumeAlert volumeAlert = null;
+
+						if (message instanceof ObjectMessage) {
+							ObjectMessage objectMessage = (ObjectMessage) message;
+							if (messageType.equals(VOLUME_ALERT_TYPE)) {
+								volumeAlert = (VolumeAlert) objectMessage.getObject();
+							} else if (messageType.equals(PRICE_ALERT_TYPE)) {
+								priceAlert = (PriceAlert) objectMessage.getObject();
+							}
+						} else if (message instanceof TextMessage) {
+							TextMessage textMessage = (TextMessage) message;
+							if (messageType.equals(VOLUME_ALERT_TYPE)) {
+								volumeAlert = processVolumeAlertTextMessage(textMessage);
+							} else if (messageType.equals(PRICE_ALERT_TYPE)) {
+								priceAlert = processPriceAlertTextMessage(textMessage);
+							}
+						}
+
+						if (priceAlert != null) {
+							registeredCallback.processPriceAlert(priceAlert);
+						} else if (volumeAlert != null) {
+							registeredCallback.processVolumeAlert(volumeAlert);
+						}
+
+					} catch (Exception e) {
+						log.error(e.getMessage());
+					}
+				}
+			});
+
+			connection.start();
+
+		} catch (JMSException e) {
+			log.error(e.getMessage());
+		}
+	}
 	// TODO
 	// This object should start consuming messages when registerCallback method is invoked.
 	
@@ -55,5 +139,28 @@ public class JmsQueueReceiver {
 	//		Stock=<String value>
 	//		Volume=<long value>
 	
-	// When shutdown() method is invoked on this object it should remove the listeners and close open connection to the broker.   
+	// When shutdown() method is invoked on this object it should remove the listeners and close open connection to the broker.
+	
+	private PriceAlert processPriceAlertTextMessage(TextMessage priceAlert) throws JMSException, NumberFormatException {
+		String priceAlertText = priceAlert.getText();
+		String[] priceAlertSplit = priceAlertText.split("=|\\r?\\n");
+		PriceAlert priceAlertObject = null;
+		if (priceAlertSplit.length == 6) {
+			priceAlertObject = new PriceAlert(Long.parseLong(priceAlertSplit[1].trim()), priceAlertSplit[3].trim(),
+					BigDecimal.valueOf(Long.parseLong(priceAlertSplit[5].trim())));
+		}
+		return priceAlertObject;
+	}
+
+	private VolumeAlert processVolumeAlertTextMessage(TextMessage volumeAlert)
+			throws JMSException, NumberFormatException {
+		String volumeAlertText = volumeAlert.getText();
+		String[] volumeAlertSplit = volumeAlertText.split("=|\\r?\\n");
+		VolumeAlert volumeAlertObject = null;
+		if (volumeAlertSplit.length == 6) {
+			volumeAlertObject = new VolumeAlert(Long.parseLong(volumeAlertSplit[1].trim()), volumeAlertSplit[3].trim(),
+					Long.parseLong(volumeAlertSplit[5].trim()));
+		}
+		return volumeAlertObject;
+	}
 }
