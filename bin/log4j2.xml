@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Configuration status="warn" shutdownHook="disable">
+	<Properties>
+		<Property name="log-path">logs</Property>
+	</Properties>
+
+	<Appenders>
+		<Console name="console" target="SYSTEM_OUT">
+			<PatternLayout pattern="[%t] %-5p %c %x - %m%n" />
+		</Console>
+	</Appenders>
+
+	<Loggers>
+		<Root level="info" additivity="false">
+			<appender-ref ref="console" level="debug" />
+		</Root>
+	</Loggers>
+
+</Configuration>
