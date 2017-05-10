@@ -1,0 +1,8 @@
+876  [main] INFO  wdsr.exercise4.sender.JmsSender [] - Start sending non persistent messages
+34226 [main] INFO  wdsr.exercise4.sender.JmsSender [] - 10000 non persistent messages sent in 33259 milliseconds
+34227 [main] INFO  wdsr.exercise4.sender.JmsSender [] - Start sending persistent messages
+67679 [main] INFO  wdsr.exercise4.sender.JmsSender [] - 10000 persistent messages sent in 33451 milliseconds
+826  [main] INFO  wdsr.exercise4.sender.JmsSender [] - Start sending non persistent messages
+32171 [main] INFO  wdsr.exercise4.sender.JmsSender [] - 10000 non persistent messages sent in 31249 milliseconds
+32171 [main] INFO  wdsr.exercise4.sender.JmsSender [] - Start sending persistent messages
+61631 [main] INFO  wdsr.exercise4.sender.JmsSender [] - 10000 persistent messages sent in 29458 milliseconds
